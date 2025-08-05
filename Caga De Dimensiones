@@ -1,0 +1,388 @@
+# Data Warehouse Northwind - Scripts de Carga de Dimensiones
+
+## Información del Proyecto
+- **Estudiante:** [Tu Nombre]
+- **Fecha:** 04 de Agosto, 2025
+- **Base de Datos Fuente:** NWIND (Northwind)
+- **Base de Datos Destino:** DWHNorthwindOrders
+
+## Resumen de Dimensiones Cargadas
+
+| Dimensión | Registros | Estado |
+|-----------|-----------|--------|
+| DimCustomers | 91 | ✅ Cargada |
+| DimEmployee | 9 | ✅ Cargada |
+| DimShippers | 3 | ✅ Cargada |
+| DimCategory | 8 | ✅ Cargada |
+| DimProduct | 77 | ✅ Cargada |
+
+---
+
+## 1. Script de Creación de Tablas de Dimensión
+
+### DimCustomers
+```sql
+USE DWHNorthwindOrders
+GO
+
+CREATE TABLE DimCustomers (
+    CustomerKey INT IDENTITY(1,1) PRIMARY KEY,
+    CustomerID NCHAR(5) NOT NULL,
+    CompanyName NVARCHAR(40) NOT NULL,
+    ContactName NVARCHAR(30),
+    ContactTitle NVARCHAR(30),
+    Address NVARCHAR(60),
+    City NVARCHAR(15),
+    Region NVARCHAR(15),
+    PostalCode NVARCHAR(10),
+    Country NVARCHAR(15),
+    Phone NVARCHAR(24),
+    Fax NVARCHAR(24),
+    CreatedDate DATETIME DEFAULT GETDATE(),
+    ModifiedDate DATETIME DEFAULT GETDATE()
+)
+GO
+```
+
+### DimEmployee
+```sql
+CREATE TABLE DimEmployee (
+    EmployeeKey INT IDENTITY(1,1) PRIMARY KEY,
+    EmployeeID INT NOT NULL,
+    LastName NVARCHAR(20) NOT NULL,
+    FirstName NVARCHAR(10) NOT NULL,
+    Title NVARCHAR(30),
+    TitleOfCourtesy NVARCHAR(25),
+    BirthDate DATETIME,
+    HireDate DATETIME,
+    Address NVARCHAR(60),
+    City NVARCHAR(15),
+    Region NVARCHAR(15),
+    PostalCode NVARCHAR(10),
+    Country NVARCHAR(15),
+    HomePhone NVARCHAR(24),
+    Extension NVARCHAR(4),
+    CreatedDate DATETIME DEFAULT GETDATE(),
+    ModifiedDate DATETIME DEFAULT GETDATE()
+)
+GO
+```
+
+### DimShippers
+```sql
+CREATE TABLE DimShippers (
+    ShipperKey INT IDENTITY(1,1) PRIMARY KEY,
+    ShipperID INT NOT NULL,
+    CompanyName NVARCHAR(40) NOT NULL,
+    Phone NVARCHAR(24),
+    CreatedDate DATETIME DEFAULT GETDATE(),
+    ModifiedDate DATETIME DEFAULT GETDATE()
+)
+GO
+```
+
+### DimCategory
+```sql
+CREATE TABLE DimCategory (
+    CategoryKey INT IDENTITY(1,1) PRIMARY KEY,
+    CategoryID INT NOT NULL,
+    CategoryName NVARCHAR(15) NOT NULL,
+    Description NTEXT,
+    CreatedDate DATETIME DEFAULT GETDATE(),
+    ModifiedDate DATETIME DEFAULT GETDATE()
+)
+GO
+```
+
+### DimProduct
+```sql
+CREATE TABLE DimProduct (
+    ProductKey INT IDENTITY(1,1) PRIMARY KEY,
+    ProductID INT NOT NULL,
+    ProductName NVARCHAR(40) NOT NULL,
+    SupplierID INT,
+    CategoryID INT,
+    QuantityPerUnit NVARCHAR(20),
+    UnitPrice MONEY,
+    UnitsInStock SMALLINT,
+    UnitsOnOrder SMALLINT,
+    ReorderLevel SMALLINT,
+    Discontinued BIT,
+    CreatedDate DATETIME DEFAULT GETDATE(),
+    ModifiedDate DATETIME DEFAULT GETDATE()
+)
+GO
+```
+
+---
+
+## 2. Store Procedures de Carga
+
+### sp_LoadDimCustomers
+```sql
+CREATE PROCEDURE sp_LoadDimCustomers
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    BEGIN TRY
+        TRUNCATE TABLE DimCustomers;
+        
+        INSERT INTO DimCustomers (
+            CustomerID, CompanyName, ContactName, ContactTitle,
+            Address, City, Region, PostalCode, Country,
+            Phone, Fax, CreatedDate, ModifiedDate
+        )
+        SELECT 
+            CustomerID, CompanyName, ContactName, ContactTitle,
+            Address, City, Region, PostalCode, Country,
+            Phone, Fax, GETDATE(), GETDATE()
+        FROM NWIND.dbo.Customers;
+        
+        PRINT 'DimCustomers cargada exitosamente. Registros procesados: ' + CAST(@@ROWCOUNT AS VARCHAR(10));
+        
+    END TRY
+    BEGIN CATCH
+        PRINT 'Error al cargar DimCustomers: ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+GO
+```
+
+### sp_LoadDimEmployee
+```sql
+CREATE PROCEDURE sp_LoadDimEmployee
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    BEGIN TRY
+        TRUNCATE TABLE DimEmployee;
+        
+        INSERT INTO DimEmployee (
+            EmployeeID, LastName, FirstName, Title, TitleOfCourtesy,
+            BirthDate, HireDate, Address, City, Region, PostalCode,
+            Country, HomePhone, Extension, CreatedDate, ModifiedDate
+        )
+        SELECT 
+            EmployeeID, LastName, FirstName, Title, TitleOfCourtesy,
+            BirthDate, HireDate, Address, City, Region, PostalCode,
+            Country, HomePhone, Extension, GETDATE(), GETDATE()
+        FROM NWIND.dbo.Employees
+        WHERE EmployeeID IS NOT NULL;
+        
+        PRINT 'DimEmployee cargada exitosamente. Registros procesados: ' + CAST(@@ROWCOUNT AS VARCHAR(10));
+        
+    END TRY
+    BEGIN CATCH
+        PRINT 'Error al cargar DimEmployee: ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+GO
+```
+
+### sp_LoadDimShippers
+```sql
+CREATE PROCEDURE sp_LoadDimShippers
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    BEGIN TRY
+        TRUNCATE TABLE DimShippers;
+        
+        INSERT INTO DimShippers (
+            ShipperID, CompanyName, Phone, CreatedDate, ModifiedDate
+        )
+        SELECT 
+            ShipperID, CompanyName, Phone, GETDATE(), GETDATE()
+        FROM NWIND.dbo.Shippers
+        WHERE ShipperID IS NOT NULL;
+        
+        PRINT 'DimShippers cargada exitosamente. Registros procesados: ' + CAST(@@ROWCOUNT AS VARCHAR(10));
+        
+    END TRY
+    BEGIN CATCH
+        PRINT 'Error al cargar DimShippers: ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+GO
+```
+
+### sp_LoadDimCategory
+```sql
+CREATE PROCEDURE sp_LoadDimCategory
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    BEGIN TRY
+        TRUNCATE TABLE DimCategory;
+        
+        INSERT INTO DimCategory (
+            CategoryID, CategoryName, Description, CreatedDate, ModifiedDate
+        )
+        SELECT 
+            CategoryID, CategoryName, Description, GETDATE(), GETDATE()
+        FROM NWIND.dbo.Categories
+        WHERE CategoryID IS NOT NULL;
+        
+        PRINT 'DimCategory cargada exitosamente. Registros procesados: ' + CAST(@@ROWCOUNT AS VARCHAR(10));
+        
+    END TRY
+    BEGIN CATCH
+        PRINT 'Error al cargar DimCategory: ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+GO
+```
+
+### sp_LoadDimProduct
+```sql
+CREATE PROCEDURE sp_LoadDimProduct
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    BEGIN TRY
+        TRUNCATE TABLE DimProduct;
+        
+        INSERT INTO DimProduct (
+            ProductID, ProductName, SupplierID, CategoryID,
+            QuantityPerUnit, UnitPrice, UnitsInStock, UnitsOnOrder,
+            ReorderLevel, Discontinued, CreatedDate, ModifiedDate
+        )
+        SELECT 
+            ProductID, ProductName, SupplierID, CategoryID,
+            QuantityPerUnit, UnitPrice, UnitsInStock, UnitsOnOrder,
+            ReorderLevel, Discontinued, GETDATE(), GETDATE()
+        FROM NWIND.dbo.Products
+        WHERE ProductID IS NOT NULL;
+        
+        PRINT 'DimProduct cargada exitosamente. Registros procesados: ' + CAST(@@ROWCOUNT AS VARCHAR(10));
+        
+    END TRY
+    BEGIN CATCH
+        PRINT 'Error al cargar DimProduct: ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+GO
+```
+
+---
+
+## 3. Store Procedure Maestro
+
+### sp_LoadAllDimensions
+```sql
+CREATE PROCEDURE sp_LoadAllDimensions
+AS
+BEGIN
+    SET NOCOUNT ON;
+    
+    DECLARE @StartTime DATETIME = GETDATE();
+    DECLARE @EndTime DATETIME;
+    
+    BEGIN TRY
+        PRINT '========================================';
+        PRINT 'INICIO DE CARGA DE DIMENSIONES - ' + CONVERT(VARCHAR, @StartTime, 120);
+        PRINT '========================================';
+        
+        PRINT 'Cargando DimCustomers...';
+        EXEC sp_LoadDimCustomers;
+        
+        PRINT 'Cargando DimEmployee...';
+        EXEC sp_LoadDimEmployee;
+        
+        PRINT 'Cargando DimShippers...';
+        EXEC sp_LoadDimShippers;
+        
+        PRINT 'Cargando DimCategory...';
+        EXEC sp_LoadDimCategory;
+        
+        PRINT 'Cargando DimProduct...';
+        EXEC sp_LoadDimProduct;
+        
+        SET @EndTime = GETDATE();
+        
+        PRINT '========================================';
+        PRINT 'CARGA COMPLETADA EXITOSAMENTE';
+        PRINT 'Tiempo total: ' + CAST(DATEDIFF(SECOND, @StartTime, @EndTime) AS VARCHAR) + ' segundos';
+        PRINT 'Hora fin: ' + CONVERT(VARCHAR, @EndTime, 120);
+        PRINT '========================================';
+        
+    END TRY
+    BEGIN CATCH
+        PRINT 'ERROR EN LA CARGA DE DIMENSIONES: ' + ERROR_MESSAGE();
+        THROW;
+    END CATCH
+END
+GO
+```
+
+---
+
+## 4. Script de Verificación
+
+```sql
+-- Resumen de todas las dimensiones
+SELECT 
+    'DimCustomers' as Dimension, COUNT(*) as TotalRegistros FROM DimCustomers
+UNION ALL
+SELECT 
+    'DimEmployee' as Dimension, COUNT(*) as TotalRegistros FROM DimEmployee
+UNION ALL
+SELECT 
+    'DimShippers' as Dimension, COUNT(*) as TotalRegistros FROM DimShippers
+UNION ALL
+SELECT 
+    'DimCategory' as Dimension, COUNT(*) as TotalRegistros FROM DimCategory
+UNION ALL
+SELECT 
+    'DimProduct' as Dimension, COUNT(*) as TotalRegistros FROM DimProduct
+ORDER BY Dimension;
+```
+
+---
+
+## 5. Proceso de Implementación
+
+1. **Crear base de datos destino:** DWHNorthwindOrders
+2. **Ejecutar scripts de creación de tablas**
+3. **Crear store procedures individuales**
+4. **Crear store procedure maestro**
+5. **Ejecutar carga inicial:** `EXEC sp_LoadAllDimensions`
+6. **Verificar resultados**
+
+---
+
+## 6. Resultados Obtenidos
+
+✅ **DimCustomers:** 91 registros cargados exitosamente  
+✅ **DimEmployee:** 9 registros cargados exitosamente  
+✅ **DimShippers:** 3 registros cargados exitosamente  
+✅ **DimCategory:** 8 registros cargados exitosamente  
+✅ **DimProduct:** 77 registros cargados exitosamente  
+
+**Total:** 188 registros procesados correctamente
+
+---
+
+## 7. Mantenimiento
+
+Para mantener las dimensiones actualizadas, ejecutar:
+```sql
+EXEC sp_LoadAllDimensions
+```
+
+## 8. Notas Técnicas
+
+- **Tipo de SCD:** Type 1 (Sobrescribir datos existentes)
+- **Estrategia de carga:** Truncate and Load
+- **Manejo de errores:** Try-Catch con logging
+- **Auditoría:** Campos CreatedDate y ModifiedDate en todas las tablas
